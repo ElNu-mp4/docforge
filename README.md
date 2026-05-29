@@ -1,128 +1,132 @@
 # docforge
 
-> Analisis metadata & indikator copy-paste pada file Microsoft Office
+> Metadata analysis & copy-paste detection for Microsoft Office files
 
-`docforge` adalah CLI toolkit berbasis Python yang membedah metadata internal file Office untuk mendeteksi pola copy-paste, menelusuri riwayat pengeditan, dan menghasilkan skor risiko yang dapat dibaca manusia maupun mesin. Dilengkapi dengan cleaner untuk membersihkan metadata dan merotasi RSID.
+`docforge` is a Python CLI toolkit that dissects the internal metadata of Office files to detect copy-paste patterns, trace edit history, and produce a human- and machine-readable risk score. Includes a cleaner to sanitize metadata and rotate RSIDs.
 
 ---
 
-## Daftar Isi
+## Table of Contents
 
-- [Latar Belakang](#latar-belakang)
-- [Format yang Didukung](#format-yang-didukung)
-- [Instalasi](#instalasi)
-- [Penggunaan](#penggunaan)
+- [Background](#background)
+- [Supported Formats](#supported-formats)
+- [Installation](#installation)
+- [Usage](#usage)
   - [docforge.py — Analyzer](#docforgepy--analyzer)
   - [docforge_cleaner.py — Cleaner](#docforge_cleanerpy--cleaner)
-- [Cara Kerja](#cara-kerja)
+- [How It Works](#how-it-works)
 - [Output](#output)
-- [Interpretasi Hasil](#interpretasi-hasil)
-- [Keterbatasan](#keterbatasan)
+- [Interpreting Results](#interpreting-results)
+- [Limitations](#limitations)
+- [Project Structure](#project-structure)
 
 ---
 
-## Latar Belakang
+## Background
 
-File Office modern (`.docx`, `.pptx`, `.xlsx`) sebenarnya adalah arsip ZIP berisi kumpulan XML. Di dalam XML tersebut tersimpan metadata yang jarang diketahui pengguna biasa, termasuk:
+Modern Office files (`.docx`, `.pptx`, `.xlsx`) are ZIP archives containing a collection of XML files. Inside these XMLs lies metadata that most users are unaware of, including:
 
-- **Siapa yang membuat** dan **siapa yang terakhir mengedit** dokumen
-- **Berapa kali** dokumen disimpan
-- **RSID** (*Revision Save ID*) — ID unik yang Word assign ke setiap sesi pengetikan
+- **Who created** and **who last edited** the document
+- **How many times** the document was saved
+- **RSID** (*Revision Save ID*) — a unique ID that Word assigns to each editing session
 
-Dengan menganalisis metadata ini, `docforge` dapat mengidentifikasi pola yang mengindikasikan bahwa konten dokumen tidak ditulis secara organik, melainkan dipindahkan dari sumber lain dalam satu operasi besar.
+By analyzing this metadata, `docforge` can identify patterns indicating that document content was not written organically, but instead moved from another source in a single large operation.
 
 ---
 
-## Format yang Didukung
+## Supported Formats
 
-| Ekstensi | Format | Analisis RSID |
+| Extension | Format | RSID Analysis |
 |---|---|---|
-| `.docx` `.dotx` | Word Document | ✅ Penuh |
+| `.docx` `.dotx` | Word Document | ✅ Full |
 | `.pptx` `.potx` | PowerPoint | ✅ Metadata + slide count |
 | `.xlsx` `.xlsm` | Excel | ✅ Metadata + sheet info |
 
 ---
 
-## Instalasi
+## Installation
 
-**Prasyarat:** Python 3.8 atau lebih baru.
+**Prerequisites:** Python 3.8 or newer.
 
 ```bash
-# 1. Install dependency
-pip install rich
-
-# 2. Clone repo
+# 1. Clone the repo
 git clone https://github.com/ElNu-mp4/docforge.git
 cd docforge
 
-# 3. (Opsional) Jadikan executable global di Linux/macOS
+# 2. Install dependencies
+pip install rich
+
+# 3. (Optional) Make globally executable on Linux/macOS
 chmod +x docforge.py
 sudo cp docforge.py /usr/local/bin/docforge
 ```
 
-Tidak ada dependency lain — semua modul seperti `zipfile`, `xml.etree`, dan `json` sudah bawaan Python.
+No other dependencies — modules like `zipfile`, `xml.etree`, and `json` are all part of the Python standard library.
 
 ---
 
-## Penggunaan
+## Usage
 
 ### docforge.py — Analyzer
 
 ```bash
-python3 docforge.py <file> [opsi]
+python3 docforge.py <file> [options]
 ```
 
-| Argumen/Opsi | Deskripsi |
+| Argument/Option | Description |
 |---|---|
-| `file` | Path ke file Office yang ingin dianalisis |
-| `--json` | Tambahkan output JSON di bawah dashboard |
-| `--out <path>` | Simpan laporan JSON ke file |
-| `--no-dashboard` | Hanya tampilkan JSON, tanpa dashboard terminal |
-| `-h`, `--help` | Tampilkan bantuan |
+| `file` | Path to the Office file to analyze |
+| `--json` | Print JSON output below the dashboard |
+| `--out <path>` | Save JSON report to a file |
+| `--no-dashboard` | JSON only, no terminal dashboard |
+| `-h`, `--help` | Show help |
 
-**Contoh:**
+**Examples:**
 
 ```bash
-# Analisis dasar
-python3 docforge.py laporan.docx
+# Basic analysis — show terminal dashboard
+python3 docforge.py report.docx
 
-# Simpan laporan JSON
-python3 docforge.py laporan.docx --out hasil_analisis.json
+# Analyze and save JSON report
+python3 docforge.py report.docx --out analysis.json
 
-# JSON only (cocok untuk pipeline/scripting)
-python3 docforge.py laporan.docx --no-dashboard
+# JSON only (useful for pipelines/scripting)
+python3 docforge.py report.docx --no-dashboard
 
-# Analisis file PowerPoint / Excel
-python3 docforge.py presentasi.pptx
-python3 docforge.py data.xlsx --out laporan.json
+# Show dashboard AND print JSON
+python3 docforge.py report.docx --json
+
+# Analyze a PowerPoint or Excel file
+python3 docforge.py slides.pptx
+python3 docforge.py data.xlsx --out report.json
 ```
 
-**Contoh output terminal:**
+**Example terminal output:**
 
 ```
-──────── docforge  •  laporan.docx ────────
+──────── docforge  •  report.docx ────────
 
-╭─────────────── Skor Risiko Copy-Paste ───────────────╮
+╭──────────────── Copy-Paste Risk Score ───────────────╮
 │                                                       │
-│  SEDANG   ██████████░░░░░░░░░░   50/100              │
+│  MEDIUM   ██████████░░░░░░░░░░   50/100              │
 │                                                       │
-│  ⚠  Dokumen dibuat oleh 'Sandy', diedit oleh 'M S I' │
-│  ⚠  Hanya 3x disimpan (sangat sedikit)               │
-│  ⚠  RSID dominan 95.7%: hampir semua teks satu sesi  │
+│  ⚠  Document created by 'Sandy', edited by 'M S I'   │
+│  ⚠  Only saved 3 times (very few)                    │
+│  ⚠  Dominant RSID 95.7%: almost all text one session │
 │                                                       │
 ╰───────────────────────────────────────────────────────╯
 
-📄  Metadata Dokumen
+📄  Document Metadata
 ┌────────────────────────┬──────────────────────────┐
-│ Dibuat oleh            │ Sandy Kurniawan           │
-│ Terakhir diedit        │ M S I                     │
-│ Revisi                 │ 3                         │
-│ Tanggal dibuat         │ 27 Feb 2026, 05:41 UTC    │
-│ Terakhir disimpan      │ 02 May 2026, 23:17 UTC    │
-│ Aplikasi               │ Microsoft Office Word     │
+│ Created by             │ Sandy Kurniawan           │
+│ Last edited by         │ M S I                     │
+│ Revision               │ 3                         │
+│ Date created           │ 27 Feb 2026, 05:41 UTC    │
+│ Last saved             │ 02 May 2026, 23:17 UTC    │
+│ Application            │ Microsoft Office Word     │
 └────────────────────────┴──────────────────────────┘
 
-📈  Distribusi RSID (level run)
+📈  RSID Distribution (run level)
   00C81389    1080   95.7%   ███████████████████░
   00B96628      11    1.0%   ░░░░░░░░░░░░░░░░░░░░
   003030D0       7    0.6%   ░░░░░░░░░░░░░░░░░░░░
@@ -132,140 +136,144 @@ python3 docforge.py data.xlsx --out laporan.json
 
 ### docforge_cleaner.py — Cleaner
 
-Membersihkan metadata dan merotasi RSID pada file `.docx` agar skor risiko docforge = 0.
+Cleans metadata and rotates RSIDs in `.docx` files so the docforge risk score = 0.
 
 ```bash
-python3 docforge_cleaner.py <file> [opsi]
+python3 docforge_cleaner.py <file> [options]
 ```
 
-| Opsi | Deskripsi |
+| Option | Description |
 |---|---|
-| `--author` | Nama author yang akan ditanamkan ke metadata |
-| `--revision` | Jumlah revisi (default: dihitung otomatis dari word count) |
-| `--total-time` | Total waktu edit dalam menit (default: dihitung dari word count) |
-| `--rotation-freq N` | Frekuensi rotasi RSID per N paragraf (default: 5) |
-| `--out`, `-o` | Path output (default: `input_clean.docx`) |
-| `--dry-run` | Simulasi tanpa menulis file |
-| `--verbose`, `-v` | Tampilkan detail RSID |
-| `--skip-rsid` | Lewati rotasi RSID |
-| `--skip-core` | Lewati patch core.xml |
-| `--skip-app` | Lewati patch app.xml |
+| `--author` | Author name to embed in metadata |
+| `--revision` | Revision count (default: auto-calculated from word count) |
+| `--total-time` | Total edit time in minutes (default: calculated from word count) |
+| `--rotation-freq N` | RSID rotation frequency per N paragraphs (default: 5) |
+| `--out`, `-o` | Output path (default: `input_clean.docx`) |
+| `--dry-run` | Simulate without writing any file |
+| `--verbose`, `-v` | Show RSID details |
+| `--skip-rsid` | Skip RSID rotation |
+| `--skip-core` | Skip core.xml patch |
+| `--skip-app` | Skip app.xml patch |
 
-**Contoh:**
+**Examples:**
 
 ```bash
-# Bersihkan dengan author baru
-python3 docforge_cleaner.py tugas.docx --author "Nama Kamu"
+# Clean with a new author
+python3 docforge_cleaner.py assignment.docx --author "Your Name"
 
-# Tentukan revision dan total waktu edit secara manual
-python3 docforge_cleaner.py tugas.docx --author "Nama" --revision 18 --total-time 150
+# Manually set revision count and total edit time
+python3 docforge_cleaner.py assignment.docx --author "Name" --revision 18 --total-time 150
 
-# Atur frekuensi rotasi RSID
-python3 docforge_cleaner.py tugas.docx --rotation-freq 4 --out bersih.docx
+# Set RSID rotation frequency and output path
+python3 docforge_cleaner.py assignment.docx --rotation-freq 4 --out clean.docx
 
-# Dry-run
-python3 docforge_cleaner.py tugas.docx --dry-run --verbose
+# Dry run
+python3 docforge_cleaner.py assignment.docx --dry-run --verbose
 ```
 
-**Opsi `--rotation-freq`:**
+**`--rotation-freq` guide:**
 
-| Nilai | Efek |
+| Value | Effect |
 |---|---|
-| 2–3 | Banyak sesi, distribusi RSID sangat merata |
-| 5–7 | Default, cocok untuk kebanyakan dokumen |
-| 10+ | Sedikit sesi (dokumen pendek) |
+| 2–3 | Many sessions, very even RSID distribution |
+| 5–7 | Default, suitable for most documents |
+| 10+ | Few sessions (short documents, edited in one sitting) |
 
 ---
 
-## Cara Kerja
+## How It Works
 
 ### Analyzer (`docforge.py`)
 
-File Office adalah arsip ZIP. `docforge` membukanya tanpa mengekstrak ke disk, lalu membaca tiga lapisan metadata:
+Office files are ZIP archives. `docforge` opens them without extracting to disk, then reads three layers of metadata:
 
 **1. Core Metadata (`docProps/core.xml`)**
 
-| Field XML | Arti |
+| XML Field | Meaning |
 |---|---|
-| `dc:creator` | Username yang membuat dokumen pertama kali |
-| `cp:lastModifiedBy` | Username yang terakhir menyimpan |
-| `cp:revision` | Jumlah akumulasi operasi simpan |
-| `dcterms:created` | Timestamp pembuatan |
-| `dcterms:modified` | Timestamp penyimpanan terakhir |
+| `dc:creator` | Username who first created the document |
+| `cp:lastModifiedBy` | Username who last saved |
+| `cp:revision` | Cumulative save count |
+| `dcterms:created` | Creation timestamp |
+| `dcterms:modified` | Last saved timestamp |
 
 **2. App Metadata (`docProps/app.xml`)**
 
-| Field XML | Arti |
+| XML Field | Meaning |
 |---|---|
-| `TotalTime` | Total menit dokumen pernah dibuka dalam mode edit |
-| `Words` | Jumlah kata |
-| `Pages` | Jumlah halaman |
-| `Application` | Aplikasi yang dipakai |
-| `Template` | Template yang digunakan saat dibuat |
+| `TotalTime` | Total minutes the document was open in edit mode |
+| `Words` | Word count |
+| `Pages` | Page count |
+| `Application` | Application used (e.g. "Microsoft Office Word") |
+| `Template` | Template used at creation |
 
-**3. RSID Analysis — khusus `.docx`**
+**3. RSID Analysis — `.docx` only (`word/document.xml` + `word/settings.xml`)**
 
-RSID (*Revision Save ID*) adalah angka heksadesimal 8 karakter yang Word assign setiap sesi pengeditan baru, dicatat pada `w:rsidR` di elemen `<w:p>` (paragraf) dan `<w:r>` (run/teks).
+RSID (*Revision Save ID*) is an 8-character hex value that Word randomly assigns to each new editing session, recorded on `w:rsidR` in `<w:p>` (paragraph) and `<w:r>` (run/text) elements.
 
-| Indikator | Metode Deteksi | Interpretasi |
+| Indicator | Detection Method | Interpretation |
 |---|---|---|
-| **RSID asing** | RSID di `document.xml` tidak ada di `settings.xml` | Konten dipaste dari dokumen Word lain |
-| **Dominansi RSID** | % RSID terbanyak dari total run | >80% = sebagian besar teks dari satu sesi |
-| **Mismatch paragraf↔run** | Paragraf RSID ≠ RSID run di dalamnya | Struktur dari satu sesi, isi dari sesi berbeda |
-| **rsidRoot** | Nilai `<w:rsidRoot>` | Identitas asal dokumen / sesi pertama |
+| **Foreign RSIDs** | RSIDs in `document.xml` not registered in `settings.xml` | Content pasted from a different Word document |
+| **RSID dominance** | % of the most common RSID out of all runs | >80% = most text came from a single session |
+| **Paragraph↔run mismatch** | Paragraph RSID ≠ run RSIDs within it | Paragraph structure from one session, text content from another |
+| **rsidRoot** | Value of `<w:rsidRoot>` | Origin identity of the document / first creation session |
 
-**4. Scoring Risiko**
+**4. Risk Scoring**
 
-| Kondisi | Tambahan Skor |
+| Condition | Score Added |
 |---|---|
 | Creator ≠ lastModifiedBy | +15 |
-| Revisi = 1 | +20 |
-| Revisi ≤ 3 | +10 |
-| RSID dominan ≥ 95% | +25 |
-| RSID dominan ≥ 80% | +15 |
-| Ada RSID asing | +30 |
-| Mismatch paragraf↔run ≥ 20% | +15 |
-| Kecepatan edit > 100 kata/menit | +20 |
-| Kecepatan edit > 50 kata/menit | +10 |
+| Revision = 1 | +20 |
+| Revision ≤ 3 | +10 |
+| Dominant RSID ≥ 95% | +25 |
+| Dominant RSID ≥ 80% | +15 |
+| Foreign RSIDs found | +30 |
+| Paragraph↔run mismatch ≥ 20% | +15 |
+| Edit speed > 100 words/min | +20 |
+| Edit speed > 50 words/min | +10 |
 
-| Skor | Level | Warna |
+| Score | Level | Color |
 |---|---|---|
-| 0 – 39 | RENDAH | Hijau |
-| 40 – 69 | SEDANG | Kuning |
-| 70 – 100 | TINGGI | Merah |
+| 0 – 39 | LOW | Green |
+| 40 – 69 | MEDIUM | Yellow |
+| 70 – 100 | HIGH | Red |
 
 ### Cleaner (`docforge_cleaner.py`)
 
-- Merotasi RSID di `document.xml` dan `settings.xml` via raw bytes
-- Menyinkronkan RSID run dengan paragraf induknya
-- Menambahkan jitter acak antar sesi untuk distribusi yang natural
-- Patch `core.xml`: author, timestamps, revision
-- Patch `app.xml`: aplikasi, total waktu edit (dihitung dari word count)
+- Rotates RSIDs in `document.xml` and `settings.xml` via raw bytes (no full XML re-parse)
+- Synchronizes run RSIDs with their parent paragraph
+- Adds random jitter between sessions for natural distribution
+- Patches `core.xml`: author, timestamps, revision
+- Patches `app.xml`: application, total edit time (calculated from word count)
 
 ---
 
 ## Output
 
-### Dashboard Terminal
+### Terminal Dashboard
 
-1. **Banner risiko** — skor, level, dan daftar flag
-2. **Tabel metadata dokumen** — informasi identitas dan aplikasi
-3. **Tabel statistik** — kata, halaman, waktu, kecepatan
-4. **Tabel RSID** — ringkasan analisis sesi (khusus `.docx`)
-5. **Distribusi RSID** — bar chart ASCII per sesi
-6. **Contoh mismatch** — cuplikan teks dengan RSID tidak konsisten
+Displayed by default. Consists of:
 
-### Laporan JSON
+1. **Risk banner** — score, level, and list of flags
+2. **Document metadata table** — identity and application info
+3. **Statistics table** — words, pages, time, speed
+4. **RSID table** — session analysis summary (`.docx` only)
+5. **RSID distribution** — ASCII bar chart per session
+6. **Mismatch examples** — text snippets with inconsistent RSIDs
+
+### JSON Report
+
+Generated with `--json` or `--out`. Structure:
 
 ```json
 {
-  "file": "laporan.docx",
+  "file": "report.docx",
   "format": "docx",
   "analyzed": "2026-05-03T06:26:33+00:00",
   "risk": {
     "score": 50,
-    "level": "SEDANG",
-    "flags": ["Dokumen dibuat oleh 'Sandy', diedit oleh 'M S I'", "..."],
+    "level": "MEDIUM",
+    "flags": ["Document created by 'Sandy', edited by 'M S I'", "..."],
     "notes": []
   },
   "core_metadata": {
@@ -298,39 +306,39 @@ RSID (*Revision Save ID*) adalah angka heksadesimal 8 karakter yang Word assign 
 
 ---
 
-## Interpretasi Hasil
+## Interpreting Results
 
-### RSID Dominan Tinggi (>80%)
+### High RSID Dominance (>80%)
 
-Bukan otomatis berarti plagiarisme. Ada dua skenario umum:
+This does not automatically indicate plagiarism. Two common scenarios:
 
-**Skenario wajar:** Mahasiswa mengisi template dosen dalam satu sesi kerja panjang. Semua teks yang diketik dalam sesi itu mendapat RSID yang sama. Ini normal dan sering terjadi.
+**Normal scenario:** A student fills in a lecturer's template in one long work session. All text typed in that session gets the same RSID. This is normal and common.
 
-**Skenario mencurigakan:** Seseorang mem-paste konten dari luar Word (Google Docs, Notepad, web) lalu menyimpannya. Semua teks yang dipaste mendapat RSID sesi saat itu, menyebabkan dominansi ekstrem.
+**Suspicious scenario:** Someone pastes content from outside Word (Google Docs, Notepad, web) and saves. All pasted text gets the RSID of that session, causing extreme dominance.
 
-Bedakan keduanya dengan melihat **kecepatan edit** (kata/menit) dan **jumlah revisi**. Jika dominansi tinggi + revisi sangat sedikit + kecepatan tidak wajar → lebih mencurigakan.
+Distinguish between them by looking at **edit speed** (words/min) and **revision count**. High dominance + very few revisions + unreasonable speed → more suspicious.
 
-### RSID Asing Ditemukan
+### Foreign RSIDs Found
 
-Ini adalah **indikator terkuat**. RSID asing muncul ketika seseorang membuka dua dokumen Word berbeda di komputer yang sama, lalu meng-copy-paste antar keduanya. Teks yang dipaste membawa RSID dari dokumen asal yang tidak terdaftar di `settings.xml` dokumen tujuan.
+This is the **strongest indicator**. Foreign RSIDs appear when someone opens two different Word documents on the same computer and copy-pastes between them. The pasted text carries the RSID from the source document, which is not registered in the destination document's `settings.xml`.
 
 ### Creator ≠ Last Modified By
 
-Sangat umum dan tidak selalu bermasalah — misalnya dosen membagikan template, lalu mahasiswa mengisinya. Tapi dalam konteks pengumpulan tugas antar-mahasiswa, flag ini perlu dicermati lebih lanjut.
+Very common and not always a problem — for example, a lecturer shares a template and a student fills it in. But in the context of assignment submissions between students, this flag warrants closer inspection.
 
-### Mismatch Paragraf ↔ Run
+### Paragraph↔Run Mismatch
 
-Terjadi ketika struktur paragraf (tanda `¶`) berasal dari satu sesi, tetapi isi teks di dalamnya ditulis di sesi berbeda. Ini bisa terjadi karena penghapusan dan pengetikan ulang, atau karena paste yang menimpa teks lama.
+Occurs when a paragraph structure (the `¶` mark) originates from one session, but the text content inside was written in a different session. This can happen due to deletion and retyping, or pasting that overwrites existing text.
 
 ---
 
-## Keterbatasan
+## Limitations
 
-- **Bukan bukti hukum.** Hasil analisis bersifat indikatif, bukan konklusif. Metadata bisa dimanipulasi secara manual.
-- **RSID hanya ada di `.docx`.** Format `.pptx` dan `.xlsx` tidak memiliki sistem RSID setara.
-- **Tidak mendeteksi parafrase.** `docforge` menganalisis metadata teknis, bukan kesamaan konten. Untuk plagiarisme berbasis teks, gunakan tools seperti Turnitin.
-- **Paste dari luar Word tidak meninggalkan RSID asing.** Jika konten disalin dari browser, PDF, atau Google Docs, tidak ada RSID asing — hanya dominansi RSID satu sesi.
-- **File yang disimpan ulang Word Online** dapat menormalisasi RSID, menghilangkan jejak sesi sebelumnya.
+- **Not legal evidence.** Analysis results are indicative, not conclusive. Metadata can be manually manipulated.
+- **RSID only exists in `.docx`.** Formats `.pptx` and `.xlsx` have no equivalent RSID system, so their analysis is limited to general metadata.
+- **Does not detect paraphrasing.** `docforge` analyzes technical metadata, not content similarity. For text-based plagiarism detection, use tools like Turnitin.
+- **Paste from outside Word leaves no foreign RSIDs.** Content copied from a browser, PDF, or Google Docs produces no foreign RSIDs — only single-session RSID dominance.
+- **Files re-saved in Word Online** may normalize RSIDs, erasing traces of previous sessions.
 
 ---
 
